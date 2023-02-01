@@ -1,0 +1,189 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+# default_platform(:ios)
+
+require 'os'
+require 'fastlane_core/ui/ui'
+
+fastlane_require 'dotenv'
+
+before_all do |lane|
+  Dotenv.overload "../.env.#{lane_context[SharedValues::PLATFORM_NAME]}"
+  Dotenv.overload "../../.env"
+end
+
+
+platform :android do
+  
+    lane :deploy_google_play_internal do |options|
+ 
+        aab_path = ENV["BUILD_OUTPUT_PATH"]
+        if !aab_path.end_with?(".aab")
+            aab_path = "#{aab_path}.aab"
+        end
+        
+        puts aab_path
+        
+        supply(
+            track: "internal",
+            json_key: ENV["GOOGLE_AUTH_JSON_KEY_PATH"],
+            aab: aab_path,
+            skip_upload_metadata: true,
+	        skip_upload_images: true,
+            skip_upload_screenshots: true,
+            skip_upload_apk: true
+        )
+    end
+end
+
+platform :ios do
+   
+
+    lane :deploy_testflight_internal do |options|
+        
+        project_name = "Unity-iPhone"
+
+        xcode_root = "../#{ENV["BUILD_OUTPUT_PATH"]}"
+        xcode_proj = "#{xcode_root}/#{project_name}.xcodeproj"
+        xcode_target = ""
+        keychain_passwd = ENV["KEYCHAIN_PASSWORD"]
+
+
+        podfile_path = "#{root}/Podfile"
+        if File.exist?(podfile_path)
+            cocoapods(
+                clean_install: true,
+                podfile: podfile_path
+            )
+            
+            xcode_target = "#{xcode_root}/#{project_name}.xcworkspace"
+            
+            if !File.exist?(xcode_target)
+                xcode_target = ""
+            end
+        end
+
+        if xcode_target.empty?
+            xcode_target = xcode_proj
+        end
+
+        build_configuration = "Release"
+        match_type = "appstore"
+        
+        version_number = get_version_number(xcodeproj: xcode_proj, target: project_name)
+        build_number = get_build_number(xcodeproj: xcode_proj)
+
+        profiles = match(type: match_type, readonly: true)
+        update_signing(profiles: profiles, path: proj, code_sign_identity: "Apple Distribution", build_configurations: [build_configuration])
+        
+        output_dir = "#{xcode_root}/build"
+        display_name = get_info_plist_value(
+            path: "#{xcode_root}/Info.plist",
+            key: "CFBundleDisplayName"
+        )
+        ipa_path, dsym_path = export_ipa(
+            project_path: xcode_target, 
+            output_dir: output_dir, 
+            output_name: "#{display_name}-#{version_number}-#{build_number}",
+            export_method: "app-store", 
+            configuration: build_configuration,
+            keychain_passwd: keychain_passwd
+        )
+
+        upload_pilot(ipa_path: ipa_path)
+
+    end
+
+    private_lane :get_paths do |options|
+        xcode_root = ENV["XCODE_ROOT"].nil? ? options[:xcode_root] : ENV["XCODE_ROOT"]
+        #xcode_root = options[:xcode_root]
+        xcode_proj = "#{xcode_root}/Unity-iPhone.xcodeproj"
+        project_path = xcode_proj
+
+        xcode_workspace = ENV["XCODE_WORKSPACE"].nil? || ENV["XCODE_WORKSPACE"].empty? ? options[:xcode_workspace] : ENV["XCODE_WORKSPACE"]
+
+        if xcode_workspace != nil
+            project_path = "#{xcode_root}/#{xcode_workspace}"
+            if !project_path.end_with?(".xcworkspace")
+                project_path = "#{project_path}.xcworkspace"
+            end
+        end
+        [xcode_root, xcode_proj, project_path]
+    end
+
+    private_lane :export_ipa do |options|
+        project_path = options[:project_path]
+        workspace_path = nil
+        
+        puts project_path
+
+        if project_path.end_with?(".xcworkspace")
+            puts "export project is .xcworkspace"
+            workspace_path = project_path;
+            project_path = nil
+        else 
+            puts "export project is .xcodeproj"
+        end
+        
+        export_method = options[:export_method]
+        output_dir = "#{options[:output_dir]}/#{export_method}"
+        if Dir.exist?(output_dir)
+            sh(command: "rm -vfr #{output_dir}")
+        end
+        archive_path = "#{output_dir}/Archive"
+        configuration = options[:configuration]
+
+        unlock_keychain(
+            path: "~/Library/Keychains/login.keychain-db",
+            password: options[:keychain_passwd]
+        )
+
+        puts "+++ fastlane gym"
+
+        output_name = options[:output_name].nil? ? nil : "#{options[:output_name]}.ipa"
+
+        gym(
+            scheme: "Unity-iPhone",
+            project: project_path,
+            workspace: workspace_path,
+            configuration: configuration,
+            clean: true,
+            output_directory: output_dir,
+            output_name: output_name,
+            export_method: export_method,
+            include_bitcode: false,
+            export_options: {
+                compileBitcode: false
+            },
+            archive_path: archive_path,
+            destination: "generic/platform=iOS",
+        )
+        archive_path = File.expand_path("../#{archive_path}.xcarchive", Dir.pwd)
+        if File.exist?(archive_path)
+            sh(command: "rm -vfr #{archive_path}")
+        end
+        puts "--- fastlane gym"
+        
+        ipa_path = lane_context[:IPA_OUTPUT_PATH]
+        dsym_path = lane_context[:DSYM_OUTPUT_PATH]
+        
+        puts "ipa: #{ipa_path}"
+        puts "dsym: #{dsym_path}"
+        
+        [ipa_path, dsym_path]
+    end
+
+end

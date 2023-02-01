@@ -1,0 +1,6 @@
+app_identifier ENV["APP_IDENTIFIER"] || "com.company.ios"
+apple_id ENV["APPLE_ID"] || "default@gmail.com" # Your Apple email address
+team_id ENV["TEAM_ID"] || "developer-team-id"
+itc_team_id ENV["ITC_TEAM_ID"] || "app-store-connect-team-id" # appstore connect id
+
+package_name ENV["PACKAGE_NAME"] || "com.company.android"
