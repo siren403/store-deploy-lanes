@@ -180,7 +180,7 @@ platform :ios do
         configuration = options[:configuration]
 
         unlock_keychain(
-            path: "~/Library/Keychains/login.keychain-db",
+            path: "login",
             password: options[:keychain_passwd]
         )
 
