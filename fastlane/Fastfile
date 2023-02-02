@@ -30,7 +30,7 @@ platform :android do
   
     lane :deploy_google_play_internal do |options|
  
-        aab_path = ENV["BUILD_OUTPUT_PATH"]
+        aab_path = "#{ENV["WORKSPACE"]}/#{ENV["BUILD_OUTPUT_PATH"]}"
         if !aab_path.end_with?(".aab")
             aab_path = "#{aab_path}.aab"
         end
@@ -56,7 +56,7 @@ platform :ios do
         
         project_name = "Unity-iPhone"
 
-        xcode_root = "../#{ENV["BUILD_OUTPUT_PATH"]}"
+        xcode_root = "#{ENV["WORKSPACE"]}/#{ENV["BUILD_OUTPUT_PATH"]}"
         xcode_proj = "#{xcode_root}/#{project_name}.xcodeproj"
         xcode_target = ""
         keychain_passwd = ENV["KEYCHAIN_PASSWORD"]
