@@ -98,7 +98,7 @@ platform :ios do
         end
 
         profiles = match(type: match_type, readonly: true)
-        update_signing(profiles: profiles, path: proj, code_sign_identity: "Apple Distribution", build_configurations: [build_configuration])
+        update_signing(profiles: profiles, path: xcode_proj, code_sign_identity: "Apple Distribution", build_configurations: [build_configuration])
         
         output_dir = "#{xcode_root}/build"
         display_name = get_info_plist_value(
