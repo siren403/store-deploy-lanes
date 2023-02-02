@@ -85,6 +85,17 @@ platform :ios do
         
         version_number = get_version_number(xcodeproj: xcode_proj, target: project_name)
         build_number = get_build_number(xcodeproj: xcode_proj)
+        
+        begin
+            latest_build_number = latest_testflight_build_number(
+                version: version_number
+            )
+            build_number = latest_build_number
+            UI.message "used latest build number: #{version_number}(#{build_number})"
+        rescue => ex
+            UI.message "failed latest build number"
+            UI.message "used project build number: #{build_number}"
+        end
 
         profiles = match(type: match_type, readonly: true)
         update_signing(profiles: profiles, path: proj, code_sign_identity: "Apple Distribution", build_configurations: [build_configuration])
