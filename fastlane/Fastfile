@@ -62,7 +62,7 @@ platform :ios do
         keychain_passwd = ENV["KEYCHAIN_PASSWORD"]
 
 
-        podfile_path = "#{root}/Podfile"
+        podfile_path = "#{xcode_root}/Podfile"
         if File.exist?(podfile_path)
             cocoapods(
                 clean_install: true,
