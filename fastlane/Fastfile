@@ -51,7 +51,74 @@ end
 
 platform :ios do
    
+    lane :build do |options|
+        project_name = "Unity-iPhone"
 
+        xcode_root = "#{ENV["WORKSPACE"]}/#{ENV["BUILD_OUTPUT_PATH"]}"
+        xcode_proj = "#{xcode_root}/#{project_name}.xcodeproj"
+        xcode_target = ""
+        keychain_passwd = ENV["KEYCHAIN_PASSWORD"]
+
+        podfile_path = "#{xcode_root}/Podfile"
+        if File.exist?(podfile_path)
+            cocoapods(
+                clean_install: true,
+                podfile: podfile_path
+            )
+            
+            xcode_target = "#{xcode_root}/#{project_name}.xcworkspace"
+            
+            if !File.exist?(xcode_target)
+                xcode_target = ""
+            end
+        end
+
+        if xcode_target.empty?
+            xcode_target = xcode_proj
+        end
+
+        build_configuration = options[:build_configuration]
+        match_type = options[:match_type]
+        export_method = options[:export_method]
+        
+        version_number = get_version_number(xcodeproj: xcode_proj, target: project_name)
+        build_number = get_build_number(xcodeproj: xcode_proj)
+        
+        begin
+            latest_build_number = latest_testflight_build_number(
+                version: version_number
+            )
+            build_number = latest_build_number
+            UI.message "used latest build number: #{version_number}(#{build_number})"
+        rescue => ex
+            UI.message "failed latest build number"
+            UI.message "used project build number: #{build_number}"
+        end
+
+        profiles = match(type: match_type, readonly: true)
+        update_signing(
+            profiles: profiles, 
+            path: xcode_proj, 
+            code_sign_identity: "Apple Distribution", 
+            build_configurations: [build_configuration]
+        )
+        
+        output_dir = "#{xcode_root}/build"
+        display_name = get_info_plist_value(
+            path: "#{xcode_root}/Info.plist",
+            key: "CFBundleDisplayName"
+        )
+        ipa_path, dsym_path = export_ipa(
+            project_path: xcode_target, 
+            output_dir: output_dir, 
+            output_name: "#{display_name}-#{version_number}-#{build_number}",
+            export_method: export_method, 
+            configuration: build_configuration,
+            keychain_passwd: keychain_passwd
+        )
+    end
+
+    
     lane :deploy_testflight_internal do |options|
         
         project_name = "Unity-iPhone"
