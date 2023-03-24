@@ -104,14 +104,10 @@ platform :ios do
         )
         
         output_dir = "#{xcode_root}/build"
-        display_name = get_info_plist_value(
-            path: "#{xcode_root}/Info.plist",
-            key: "CFBundleDisplayName"
-        )
         ipa_path, dsym_path = export_ipa(
             project_path: xcode_target, 
             output_dir: output_dir, 
-            output_name: "#{display_name}-#{version_number}-#{build_number}",
+            output_name: "#{version_number}-#{build_number}",
             export_method: export_method, 
             configuration: build_configuration,
             keychain_passwd: keychain_passwd
